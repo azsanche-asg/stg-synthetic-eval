@@ -26,7 +26,9 @@ def evaluate_dataset(cfg):
     files = [f for f in os.listdir(dataset_dir) if f.endswith("_pred.json")]
 
     for f_pred in tqdm(files, desc="Evaluating"):
-        f_gt = f_pred.replace("_pred.json", "_gt.json")
+        import re
+        # normalize names like scene_000_depth_pred.json → scene_000_gt.json
+        f_gt = re.sub(r"(_(depth|mask))?_pred\.json$", "_gt.json", f_pred)
         with open(os.path.join(dataset_dir, f_pred), "r", encoding="utf-8") as f:
             pred = json.load(f)
         with open(os.path.join(dataset_dir, f_gt), "r", encoding="utf-8") as f:
