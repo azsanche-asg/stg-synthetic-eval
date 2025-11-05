@@ -1,6 +1,9 @@
 import argparse
+import datetime
+import importlib.util
 import json
 import os
+from pathlib import Path
 
 import pandas as pd
 import yaml
@@ -18,6 +21,24 @@ from metrics.metrics import (
 def load_config(path):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+TRACKER_PATH = (Path(__file__).resolve().parents[2] / "stg-stsg-model" / "src" / "experiment_tracker.py")
+
+
+def _noop(*args, **kwargs):
+    pass
+
+
+if TRACKER_PATH.exists():
+    spec = importlib.util.spec_from_file_location("stg_stsg_model_experiment_tracker", TRACKER_PATH)
+    tracker_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(tracker_module)
+    log_results = tracker_module.log_results
+    append_global_log = tracker_module.append_global_log
+    plot_progress = tracker_module.plot_progress
+else:
+    log_results = append_global_log = plot_progress = _noop
+
 
 
 def evaluate_dataset(cfg):
@@ -47,7 +68,24 @@ def evaluate_dataset(cfg):
     df = pd.DataFrame(results)
     outdir = cfg["output_dir"]
     os.makedirs(outdir, exist_ok=True)
-    df.to_csv(os.path.join(outdir, "results.csv"), index=False)
+    results_path = os.path.join(outdir, "results.csv")
+    df.to_csv(results_path, index=False)
+
+    # --- Auto experiment logging ---
+    summary_path = os.path.join(outdir, "summary.png")
+    outdir_abs = os.path.abspath(outdir)
+    run_base = os.path.join(os.path.dirname(outdir_abs), 'experiments')
+    os.makedirs(run_base, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+    run_dir = os.path.join(run_base, f"run_{timestamp}")
+    os.makedirs(run_dir, exist_ok=True)
+    config_guess = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "stg-stsg-model", "configs", "v1_facades.yaml"))
+    log_results(run_dir, results_path, summary_path, config_path=config_guess)
+    log_path = os.path.join(run_base, 'experiments_log.csv')
+    append_global_log(log_path, timestamp, results_path)
+    plot_progress(log_path)
+    print(f'\n📊 Experiment logged: {run_dir}\n')
+
     print(df.describe())
     return df
 
