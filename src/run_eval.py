@@ -3,6 +3,7 @@ import datetime
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -29,6 +30,20 @@ def _noop(*args, **kwargs):
     pass
 
 
+
+
+def _create_run_folder_fallback(base_out="outputs/experiments", config_path=None, tag=None):
+    os.makedirs(base_out, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_name = f"run_{timestamp}"
+    if tag:
+        run_name += f"_{tag}"
+    run_dir = os.path.join(base_out, run_name)
+    os.makedirs(run_dir, exist_ok=True)
+    if config_path and os.path.exists(config_path):
+        shutil.copy(config_path, os.path.join(run_dir, 'config.yaml'))
+    return run_dir, timestamp
+
 if TRACKER_PATH.exists():
     spec = importlib.util.spec_from_file_location("stg_stsg_model_experiment_tracker", TRACKER_PATH)
     tracker_module = importlib.util.module_from_spec(spec)
@@ -36,8 +51,10 @@ if TRACKER_PATH.exists():
     log_results = tracker_module.log_results
     append_global_log = tracker_module.append_global_log
     plot_progress = tracker_module.plot_progress
+    create_run_folder = getattr(tracker_module, 'create_run_folder', _create_run_folder_fallback)
 else:
     log_results = append_global_log = plot_progress = _noop
+    create_run_folder = _create_run_folder_fallback
 
 
 
@@ -76,28 +93,14 @@ def evaluate_dataset(cfg):
         results.append(res)
 
     df = pd.DataFrame(results)
-    outdir = cfg["output_dir"]
+    outdir = cfg.get('output_dir', 'outputs/facades_demo')
     os.makedirs(outdir, exist_ok=True)
     results_path = os.path.join(outdir, "results.csv")
     df.to_csv(results_path, index=False)
-
-    # --- Auto experiment logging ---
     summary_path = os.path.join(outdir, "summary.png")
-    outdir_abs = os.path.abspath(outdir)
-    run_base = os.path.join(os.path.dirname(outdir_abs), 'experiments')
-    os.makedirs(run_base, exist_ok=True)
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    run_dir = os.path.join(run_base, f"run_{timestamp}")
-    os.makedirs(run_dir, exist_ok=True)
-    config_guess = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "stg-stsg-model", "configs", "v1_facades.yaml"))
-    log_results(run_dir, results_path, summary_path, config_path=config_guess)
-    log_path = os.path.join(run_base, 'experiments_log.csv')
-    append_global_log(log_path, timestamp, results_path)
-    plot_progress(log_path)
-    print(f'\n📊 Experiment logged: {run_dir}\n')
 
     print(df.describe())
-    return df
+    return results_path, summary_path, df
 
 
 def _main():
@@ -110,7 +113,23 @@ def _main():
     cfg = load_config(args.config) if args.config else {}
     if args.dataset:
         cfg['dataset'] = args.dataset
-    evaluate_dataset(cfg)
+    if 'output_dir' not in cfg:
+        cfg['output_dir'] = 'outputs/facades_demo'
+
+    results_path, summary_path, _ = evaluate_dataset(cfg)
+
+    run_base = os.path.join('outputs', 'experiments')
+    os.makedirs(run_base, exist_ok=True)
+    exp_tag = os.environ.get('EXP_TAG', 'eval')
+    config_path = args.config if args.config and os.path.exists(args.config) else None
+    run_dir, timestamp = create_run_folder(base_out=run_base, config_path=config_path, tag=exp_tag)
+    print(f'[tracker] new run folder created: {run_dir}')
+
+    log_results(run_dir, results_path, summary_path, config_path=config_path)
+    log_path = os.path.join(run_base, 'experiments_log.csv')
+    append_global_log(log_path, timestamp, results_path)
+    plot_progress(log_path)
+    print(f'📊 Experiment logged: {run_dir}')
 
 
 if __name__ == "__main__":
