@@ -43,7 +43,9 @@ else:
 
 def evaluate_dataset(cfg):
     results = []
-    dataset_dir = cfg["dataset"]
+    dataset_dir = cfg.get('dataset')
+    if not dataset_dir:
+        raise ValueError('Dataset path must be provided via config or --dataset.')
     files = [f for f in os.listdir(dataset_dir) if f.endswith("_pred.json")]
 
     for f_pred in tqdm(files, desc="Evaluating"):
@@ -92,10 +94,14 @@ def evaluate_dataset(cfg):
 
 def _main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", required=True)
+    parser.add_argument('--config', default='configs/synthetic_facades.yaml')
+    parser.add_argument('--dataset', default='datasets/synthetic_facades',
+                        help='dataset folder containing *_pred.json and *_gt.json')
     args = parser.parse_args()
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config) if args.config else {}
+    if args.dataset:
+        cfg['dataset'] = args.dataset
     evaluate_dataset(cfg)
 
 
