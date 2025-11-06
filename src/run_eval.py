@@ -19,6 +19,8 @@ from metrics.metrics import (
 )
 
 
+from src.utils.visualize_results import plot_summary_bars, make_overlays
+
 def load_config(path):
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -98,6 +100,7 @@ def evaluate_dataset(cfg):
     results_path = os.path.join(outdir, "results.csv")
     df.to_csv(results_path, index=False)
     summary_path = os.path.join(outdir, "summary.png")
+    plot_summary_bars(df, summary_path)
 
     print(df.describe())
     return results_path, summary_path, df
@@ -126,6 +129,7 @@ def _main():
     print(f'[tracker] new run folder created: {run_dir}')
 
     log_results(run_dir, results_path, summary_path, config_path=config_path)
+    make_overlays(args.dataset, run_dir, n=4)
     log_path = os.path.join(run_base, 'experiments_log.csv')
     append_global_log(log_path, timestamp, results_path)
     plot_progress(log_path)
