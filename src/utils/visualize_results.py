@@ -44,6 +44,10 @@ def make_overlays(dataset_dir, run_dir, n=4):
         pred_path = os.path.join(dataset_dir, fname_pred)
         img_path = os.path.join(dataset_dir, fname_img)
 
+        if not os.path.exists(img_path):
+            alt_img_path = os.path.join('/content/stg-procedural-data/outputs/facades', fname_img)
+            if os.path.exists(alt_img_path):
+                img_path = alt_img_path
         if not (os.path.exists(gt_path) and os.path.exists(pred_path) and os.path.exists(img_path)):
             continue
 
