@@ -19,7 +19,7 @@ from metrics.metrics import (
 )
 
 
-from src.utils.visualize_results import plot_summary_bars, make_overlays
+from utils.visualize_results import plot_summary_bars, make_overlays
 
 def load_config(path):
     with open(path, "r", encoding="utf-8") as f:
