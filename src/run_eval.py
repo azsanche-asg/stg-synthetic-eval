@@ -54,7 +54,15 @@ def evaluate_dataset(cfg):
         f_gt = re.sub(r"(_(depth|mask))?_pred\.json$", "_gt.json", f_pred)
         with open(os.path.join(dataset_dir, f_pred), "r", encoding="utf-8") as f:
             pred = json.load(f)
-        with open(os.path.join(dataset_dir, f_gt), "r", encoding="utf-8") as f:
+        f_gt_path = os.path.join(dataset_dir, f_gt)
+        if not os.path.exists(f_gt_path):
+            shared_gt = os.path.join('datasets/synthetic_facades', f_gt)
+            if os.path.exists(shared_gt):
+                f_gt_path = shared_gt
+            else:
+                print(f'[warn] missing GT for {f_pred}, skipping.')
+                continue
+        with open(f_gt_path, 'r', encoding='utf-8') as f:
             gt = json.load(f)
 
         res = {
