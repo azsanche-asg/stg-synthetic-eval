@@ -19,10 +19,21 @@ def mdl_score(pred):
 
 
 def persistence_score(pred, gt):
-    return np.mean([i in gt["persist_ids"] for i in pred["persist_ids"]])
+    if 'persist_ids' not in gt or not gt['persist_ids']:
+        return np.nan
+    pred_ids = set(pred.get('persist_ids', []))
+    gt_ids = set(gt['persist_ids'])
+    if not gt_ids:
+        return np.nan
+    return len(pred_ids & gt_ids) / len(gt_ids)
 
 
 def motion_error(pred, gt):
-    if "motion" not in pred or "motion" not in gt:
+    if 'motion' not in gt or 'motion' not in pred:
         return np.nan
-    return np.mean(np.abs(np.array(pred["motion"]) - np.array(gt["motion"])))
+    diffs = []
+    for key, gt_vec in gt['motion'].items():
+        pr_vec = pred['motion'].get(key) if isinstance(pred['motion'], dict) else None
+        if pr_vec is not None:
+            diffs.append(np.linalg.norm(np.array(pr_vec) - np.array(gt_vec)))
+    return np.mean(diffs) if diffs else np.nan
