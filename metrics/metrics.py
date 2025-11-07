@@ -29,11 +29,17 @@ def persistence_score(pred, gt):
 
 
 def motion_error(pred, gt):
-    if 'motion' not in gt or 'motion' not in pred:
+    """Compute average motion vector error; tolerant of missing or list fields."""
+    gt_motion = gt.get('motion', {})
+    pr_motion = pred.get('motion', {})
+    if not isinstance(gt_motion, dict) or not isinstance(pr_motion, dict):
         return np.nan
     diffs = []
-    for key, gt_vec in gt['motion'].items():
-        pr_vec = pred['motion'].get(key) if isinstance(pred['motion'], dict) else None
+    for key, gt_vec in gt_motion.items():
+        pr_vec = pr_motion.get(key) if isinstance(pr_motion, dict) else None
         if pr_vec is not None:
-            diffs.append(np.linalg.norm(np.array(pr_vec) - np.array(gt_vec)))
+            try:
+                diffs.append(np.linalg.norm(np.array(pr_vec) - np.array(gt_vec)))
+            except Exception:
+                continue
     return np.mean(diffs) if diffs else np.nan
